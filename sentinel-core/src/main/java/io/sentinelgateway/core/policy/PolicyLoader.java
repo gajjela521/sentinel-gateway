@@ -14,24 +14,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-/**
- * Loads policy rules from YAML — the human-friendly authoring format.
- *
- * Example YAML:
- * <pre>
- * rules:
- *   - id: no-bulk-delete-unverified
- *     description: "DELETE on >1 resource requires human approval"
- *     methods: [DELETE]
- *     endpoint_pattern: ".*/users.*"
- *     action: REQUIRE_APPROVAL
- *     agent_guidance: "Request human approval before bulk deletions"
- *     safe_alternatives:
- *       - "GET /users/{id}"
- *       - "POST /users/{id}/deactivate"
- *     priority: 10
- * </pre>
- */
+/** Loads policy rules from YAML. See sentinel-default-policies.yaml for the schema. */
 public final class PolicyLoader {
 
     private static final Logger log = LoggerFactory.getLogger(PolicyLoader.class);

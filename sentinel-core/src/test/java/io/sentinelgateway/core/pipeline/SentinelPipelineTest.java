@@ -126,7 +126,7 @@ class SentinelPipelineTest {
         java.util.concurrent.atomic.AtomicInteger auditCount = new java.util.concurrent.atomic.AtomicInteger();
 
         SentinelPipeline pipeline = new SentinelPipelineBuilder()
-                .injectionScanner(false)
+                .injectionScanner(true)   // need at least one layer
                 .semanticDrift(false)
                 .financialCircuitBreaker(false)
                 .auditSink(event -> auditCount.incrementAndGet())

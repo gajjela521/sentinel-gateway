@@ -60,7 +60,7 @@ public final class SentinelPipeline {
         }
 
         long elapsedNanos = System.nanoTime() - startNanos;
-        SentinelDecision result = buildDecision(terminal, traceId, ctx);
+        SentinelDecision result = buildDecision(terminal, decidingLayer, traceId, ctx);
         auditSink.accept(buildAudit(request, result, decidingLayer,
                 terminal != null ? terminal.ruleId() : null,
                 terminal != null ? terminal.reason() : null,
@@ -69,7 +69,8 @@ public final class SentinelPipeline {
         return result;
     }
 
-    private SentinelDecision buildDecision(LayerDecision terminal, String traceId, PipelineContext ctx) {
+    private SentinelDecision buildDecision(LayerDecision terminal, String layer,
+                                           String traceId, PipelineContext ctx) {
         if (terminal == null) return SentinelDecision.allow(traceId);
 
         SentinelDecision.Builder b = switch (terminal.outcome()) {
@@ -84,7 +85,8 @@ public final class SentinelPipeline {
         Double schema  = ctx.get(PipelineContext.KEY_SCHEMA_ANOMALY);
         Double mutatW  = ctx.get(PipelineContext.KEY_MUTATION_WEIGHT);
 
-        return b.ruleId(terminal.ruleId())
+        return b.layer(layer)
+                .ruleId(terminal.ruleId())
                 .reason(terminal.reason())
                 .agentGuidance(terminal.agentGuidance())
                 .safeAlternatives(terminal.safeAlternatives())

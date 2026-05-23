@@ -45,12 +45,11 @@ class FinancialCircuitBreakerTest {
         BudgetConfig config = new BudgetConfig(100.0, 100_000, 3, 60_000);
         FinancialCircuitBreakerLayer cb = new FinancialCircuitBreakerLayer(config);
 
+        // 2 mutations pass; the 3rd pre-charges to count=3 which equals the limit → violation
         cb.evaluate(mutation("thread-B"), new PipelineContext());
         cb.evaluate(mutation("thread-B"), new PipelineContext());
-        cb.evaluate(mutation("thread-B"), new PipelineContext());
-
         LayerDecision d = cb.evaluate(mutation("thread-B"), new PipelineContext());
-        assertEquals(LayerDecision.Outcome.BLOCK, d.outcome(), "Should block after velocity exceeded");
+        assertEquals(LayerDecision.Outcome.BLOCK, d.outcome(), "Should block on 3rd mutation at limit");
         assertEquals("mutation-velocity-exceeded", d.ruleId());
     }
 

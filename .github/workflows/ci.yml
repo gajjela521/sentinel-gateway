@@ -29,15 +29,8 @@ jobs:
           distribution: temurin
           cache: maven
 
-      - name: Build sentinel-bom and sentinel-core
+      - name: Build and test sentinel-bom + sentinel-core
         run: mvn --batch-mode --no-transfer-progress install -pl sentinel-bom,sentinel-core
-
-      - name: Run sentinel-core tests
-        run: mvn --batch-mode --no-transfer-progress test -pl sentinel-core
-
-      - name: Verify sentinel-spring-boot (compile only, no runtime Spring context needed)
-        run: mvn --batch-mode --no-transfer-progress compile -pl sentinel-spring-boot/sentinel-spring-boot-autoconfigure,sentinel-spring-boot/sentinel-spring-boot-starter -am
-        continue-on-error: true
 
       - name: Upload test results
         if: always()

@@ -33,14 +33,14 @@ class OrgBaselineTest {
 
     @Test
     void perfectlySimilarVectorScoresOne() {
-        OrgBaseline baseline = new OrgBaseline("org-1", 3, new double[]{1.0, 0.0, 0.0}, 100);
+        OrgBaseline baseline = new OrgBaseline("org-1", new double[]{1.0, 0.0, 0.0}, 100);
         double sim = baseline.cosineSimilarity(vector(1f, 0f, 0f), 5);
         assertEquals(1.0, sim, 0.001);
     }
 
     @Test
     void orthogonalVectorScoresZero() {
-        OrgBaseline baseline = new OrgBaseline("org-1", 3, new double[]{1.0, 0.0, 0.0}, 100);
+        OrgBaseline baseline = new OrgBaseline("org-1", new double[]{1.0, 0.0, 0.0}, 100);
         double sim = baseline.cosineSimilarity(vector(0f, 1f, 0f), 5);
         assertEquals(0.0, sim, 0.001);
     }

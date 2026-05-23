@@ -28,7 +28,14 @@ public final class FinancialCircuitBreakerLayer implements SentinelLayer {
 
     public enum BreakerState { CLOSED, OPEN, HALF_OPEN }
 
-    private record BreakerEntry(ExecutionBudget budget, volatile BreakerState state) {}
+    private static final class BreakerEntry {
+        final ExecutionBudget budget;
+        volatile BreakerState state;
+        BreakerEntry(ExecutionBudget budget, BreakerState state) {
+            this.budget = budget;
+            this.state = state;
+        }
+    }
 
     private final BudgetConfig defaultConfig;
     private final Map<String, BreakerEntry> breakers = new ConcurrentHashMap<>();
@@ -48,9 +55,9 @@ public final class FinancialCircuitBreakerLayer implements SentinelLayer {
         BreakerEntry entry = breakers.computeIfAbsent(
                 threadId, id -> new BreakerEntry(new ExecutionBudget(id, defaultConfig), BreakerState.CLOSED));
 
-        if (entry.state() == BreakerState.OPEN) {
+        if (entry.state == BreakerState.OPEN) {
             // Check if window has expired — try half-open
-            if (entry.budget().isWindowExpired()) {
+            if (entry.budget.isWindowExpired()) {
                 breakers.put(threadId, new BreakerEntry(new ExecutionBudget(threadId, defaultConfig), BreakerState.HALF_OPEN));
                 log.info("Circuit breaker for thread {} transitioned to HALF_OPEN", threadId);
             } else {
@@ -65,13 +72,13 @@ public final class FinancialCircuitBreakerLayer implements SentinelLayer {
 
         // Pre-charge mutations before they happen
         if (request.method().isMutation()) {
-            entry.budget().recordMutation();
+            entry.budget.recordMutation();
         }
 
-        ExecutionBudget.BudgetViolation violation = entry.budget().checkViolations();
+        ExecutionBudget.BudgetViolation violation = entry.budget.checkViolations();
         if (violation != null) {
             log.warn("Budget violation for thread {}: {}", threadId, violation.reason());
-            breakers.put(threadId, new BreakerEntry(entry.budget(), BreakerState.OPEN));
+            breakers.put(threadId, new BreakerEntry(entry.budget, BreakerState.OPEN));
             return LayerDecision.block(
                     violation.ruleId(),
                     violation.reason(),
@@ -81,10 +88,10 @@ public final class FinancialCircuitBreakerLayer implements SentinelLayer {
         }
 
         ctx.put(PipelineContext.KEY_BUDGET_SNAPSHOT, new BudgetSnapshot(
-                entry.budget().spendUsd(),
-                entry.budget().tokensConsumed(),
-                entry.budget().mutationCount(),
-                entry.state()
+                entry.budget.spendUsd(),
+                entry.budget.tokensConsumed(),
+                entry.budget.mutationCount(),
+                entry.state
         ));
 
         return LayerDecision.pass();
@@ -94,14 +101,14 @@ public final class FinancialCircuitBreakerLayer implements SentinelLayer {
     public void recordSpend(String executionThreadId, double usd, long tokens) {
         BreakerEntry entry = breakers.get(executionThreadId);
         if (entry != null) {
-            entry.budget().recordSpend(usd);
-            entry.budget().recordTokens(tokens);
+            entry.budget.recordSpend(usd);
+            entry.budget.recordTokens(tokens);
         }
     }
 
     public BreakerState getState(String executionThreadId) {
         BreakerEntry entry = breakers.get(executionThreadId);
-        return entry != null ? entry.state() : BreakerState.CLOSED;
+        return entry != null ? entry.state : BreakerState.CLOSED;
     }
 
     public record BudgetSnapshot(
