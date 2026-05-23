@@ -40,6 +40,40 @@ jobs:
           path: '**/target/surefire-reports/*.xml'
           retention-days: 7
 
+  build-dashboard:
+    name: Build Dashboard (Node 18)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: npm
+          cache-dependency-path: sentinel-dashboard/package-lock.json
+
+      - name: Install dependencies
+        working-directory: sentinel-dashboard
+        run: npm ci
+
+      - name: TypeScript compile check
+        working-directory: sentinel-dashboard
+        run: npx tsc --noEmit
+
+      - name: Production build
+        working-directory: sentinel-dashboard
+        run: npm run build
+
+      - name: Upload dashboard artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sentinel-dashboard-build
+          path: sentinel-dashboard/build/
+          retention-days: 7
+
   code-quality:
     name: Code Quality
     runs-on: ubuntu-latest
