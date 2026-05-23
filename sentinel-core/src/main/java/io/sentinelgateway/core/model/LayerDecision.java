@@ -30,8 +30,10 @@ public record LayerDecision(
         return new LayerDecision(Outcome.QUARANTINE, ruleId, reason, null, null, score);
     }
 
-    public static LayerDecision requireApproval(String ruleId, String reason, String guidance) {
-        return new LayerDecision(Outcome.REQUIRE_APPROVAL, ruleId, reason, guidance, null, 0.0);
+    public static LayerDecision requireApproval(String ruleId, String reason, String guidance,
+                                                  java.util.List<String> safeAlternatives) {
+        return new LayerDecision(Outcome.REQUIRE_APPROVAL, ruleId, reason, guidance,
+                safeAlternatives != null ? safeAlternatives : java.util.List.of(), 0.0);
     }
 
     public SentinelDecision.Verdict toVerdict() {

@@ -49,7 +49,8 @@ public final class PolicyEngine implements SentinelLayer {
                 );
                 case QUARANTINE -> LayerDecision.quarantine(rule.id(), rule.description(), 1.0);
                 case REQUIRE_APPROVAL -> LayerDecision.requireApproval(
-                        rule.id(), rule.description(), rule.agentGuidance());
+                        rule.id(), rule.description(), rule.agentGuidance(),
+                        rule.safeAlternatives());
             };
         }
         return LayerDecision.pass();
