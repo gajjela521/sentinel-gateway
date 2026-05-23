@@ -52,5 +52,25 @@
             <artifactId>spring-boot-starter-web</artifactId>
             <optional>true</optional>
         </dependency>
+
+        <!-- Persistent audit store — activated automatically when a DataSource is present -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-jdbc</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <!-- H2 embedded database — default for persistent audit in dev/test environments -->
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- ONNX Runtime — optional: required only when semantic-drift model-path is configured -->
+        <dependency>
+            <groupId>com.microsoft.onnxruntime</groupId>
+            <artifactId>onnxruntime</artifactId>
+            <optional>true</optional>
+        </dependency>
     </dependencies>
 </project>

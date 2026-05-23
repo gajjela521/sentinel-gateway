@@ -3,37 +3,36 @@ package io.sentinelgateway.spring.dashboard;
 import io.sentinelgateway.core.model.AuditEvent;
 import io.sentinelgateway.core.model.SentinelDecision;
 
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Deque;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.stream.Collectors;
 
 /**
  * Bounded, thread-safe in-memory ring buffer for {@link AuditEvent} objects.
+ * Default implementation of {@link AuditStore} — activated when no {@code DataSource}
+ * bean is present (i.e., no database configured).
  *
- * <p>Intended for the control plane dashboard. Newest events are at the head;
- * when capacity is exceeded the oldest event is dropped.
+ * <p>Retains the most recent {@value #MAX_SIZE} events. When capacity is exceeded
+ * the oldest event is dropped. All aggregate counters are maintained incrementally
+ * so stat reads are O(1).
  *
- * <p>Not a replacement for a durable audit store. For production use, wire
- * the audit sink to Kafka, a time-series DB, or an S3 append sink instead.
+ * <p>Not suitable as a durable audit log. For production deployments configure a
+ * {@code DataSource} to activate the JDBC-backed store instead.
  */
-public final class AuditEventStore {
+public final class AuditEventStore implements AuditStore {
 
     private static final int MAX_SIZE = 10_000;
 
-    /** Newest-first ring buffer. */
     private final Deque<AuditEvent> ring = new ArrayDeque<>(MAX_SIZE);
     private final ReentrantLock lock = new ReentrantLock();
 
-    // Running totals — updated under lock
     private long totalRequests;
     private long allowedCount;
     private long blockedCount;
     private long flaggedCount;
     private long sumLatencyNanos;
 
-    /** Called by the audit sink on every request. */
+    @Override
     public void record(AuditEvent event) {
         if (event == null) return;
         lock.lock();
@@ -53,16 +52,7 @@ public final class AuditEventStore {
         }
     }
 
-    public record AuditPage(List<AuditEvent> content, long totalElements, int totalPages, int number, int size) {}
-
-    /**
-     * Returns a paginated view of recorded events, optionally filtered by verdict and/or organization.
-     *
-     * @param page    zero-based page index
-     * @param size    number of events per page
-     * @param verdict optional verdict filter (null = all)
-     * @param orgId   optional organization filter (null = all)
-     */
+    @Override
     public AuditPage page(int page, int size, SentinelDecision.Verdict verdict, String orgId) {
         List<AuditEvent> snapshot;
         lock.lock();
@@ -77,20 +67,15 @@ public final class AuditEventStore {
                 .filter(e -> orgId == null || orgId.isBlank() || orgId.equals(e.organizationId()))
                 .toList();
 
-        int total = filtered.size();
+        int total      = filtered.size();
         int totalPages = total == 0 ? 1 : (int) Math.ceil((double) total / size);
-        int from = Math.min(page * size, total);
-        int to   = Math.min(from + size, total);
+        int from       = Math.min(page * size, total);
+        int to         = Math.min(from + size, total);
 
         return new AuditPage(filtered.subList(from, to), total, totalPages, page, size);
     }
 
-    public record StatsSnapshot(
-            long totalRequests, long allowedCount, long blockedCount, long flaggedCount,
-            double avgLatencyMs
-    ) {}
-
-    /** Returns aggregate statistics since startup. */
+    @Override
     public StatsSnapshot stats() {
         lock.lock();
         try {
@@ -102,7 +87,26 @@ public final class AuditEventStore {
         }
     }
 
-    /** Returns the current number of stored events. */
+    @Override
+    public Map<String, Long> topBlockedRules(int limit) {
+        List<AuditEvent> snapshot;
+        lock.lock();
+        try { snapshot = new ArrayList<>(ring); }
+        finally { lock.unlock(); }
+
+        return snapshot.stream()
+                .filter(e -> e.verdict() == SentinelDecision.Verdict.BLOCK
+                          || e.verdict() == SentinelDecision.Verdict.QUARANTINE)
+                .filter(e -> e.ruleId() != null)
+                .collect(Collectors.groupingBy(AuditEvent::ruleId, Collectors.counting()))
+                .entrySet().stream()
+                .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
+                .limit(limit)
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey, Map.Entry::getValue,
+                        (a, b) -> a, LinkedHashMap::new));
+    }
+
     public int size() {
         lock.lock();
         try { return ring.size(); }

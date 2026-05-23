@@ -15,12 +15,12 @@ import java.util.stream.Collectors;
 /**
  * REST API for the Sentinel Control Plane Dashboard.
  *
- * <p>All endpoints live under {@code /sentinel/} to avoid collisions with
- * the application's own routes. CORS is enabled for all origins so the React
- * SPA can call this API regardless of the port it's served on.
+ * <p>All endpoints live under {@code /sentinel/} to avoid collisions with the
+ * application's own routes. CORS is open so the React SPA can talk to the API
+ * regardless of the port it is served on.
  *
  * <p>Authentication is intentionally omitted from this reference implementation;
- * production deployments should add Spring Security in front of these endpoints.
+ * production deployments should place Spring Security in front of these endpoints.
  */
 @RestController
 @RequestMapping("/sentinel")
@@ -28,14 +28,14 @@ import java.util.stream.Collectors;
 public class SentinelDashboardController {
 
     private final PolicyStore policyStore;
-    private final AuditEventStore auditStore;
+    private final AuditStore auditStore;
     private final FinancialCircuitBreakerLayer circuitBreaker;
 
     public SentinelDashboardController(PolicyStore policyStore,
-                                        AuditEventStore auditStore,
+                                        AuditStore auditStore,
                                         FinancialCircuitBreakerLayer circuitBreaker) {
-        this.policyStore   = Objects.requireNonNull(policyStore);
-        this.auditStore    = Objects.requireNonNull(auditStore);
+        this.policyStore    = Objects.requireNonNull(policyStore);
+        this.auditStore     = Objects.requireNonNull(auditStore);
         this.circuitBreaker = Objects.requireNonNull(circuitBreaker);
     }
 
@@ -56,16 +56,14 @@ public class SentinelDashboardController {
     @PostMapping("/policies")
     @ResponseStatus(HttpStatus.CREATED)
     public PolicyRuleDto createPolicy(@RequestBody PolicyRuleDto dto) {
-        PolicyRule created = policyStore.create(dto.toDomain(null));
-        return PolicyRuleDto.from(created);
+        return PolicyRuleDto.from(policyStore.create(dto.toDomain(null)));
     }
 
     @PutMapping("/policies/{id}")
     public ResponseEntity<PolicyRuleDto> updatePolicy(@PathVariable String id,
                                                        @RequestBody PolicyRuleDto dto) {
-        if (!policyStore.get(id).isPresent()) return ResponseEntity.notFound().build();
-        PolicyRule updated = policyStore.update(id, dto.toDomain(id));
-        return ResponseEntity.ok(PolicyRuleDto.from(updated));
+        if (policyStore.get(id).isEmpty()) return ResponseEntity.notFound().build();
+        return ResponseEntity.ok(PolicyRuleDto.from(policyStore.update(id, dto.toDomain(id))));
     }
 
     @DeleteMapping("/policies/{id}")
@@ -78,7 +76,7 @@ public class SentinelDashboardController {
     // ── Audit Log Endpoints ───────────────────────────────────────────────────
 
     @GetMapping("/audit")
-    public AuditEventStore.AuditPage listAudit(
+    public AuditStore.AuditPage listAudit(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) String verdict,
@@ -87,10 +85,9 @@ public class SentinelDashboardController {
         SentinelDecision.Verdict v = null;
         if (verdict != null && !verdict.isBlank()) {
             try { v = SentinelDecision.Verdict.valueOf(verdict.toUpperCase(Locale.ROOT)); }
-            catch (IllegalArgumentException ignored) { /* unknown verdict treated as no filter */ }
+            catch (IllegalArgumentException ignored) {}
         }
-        int clampedSize = Math.max(1, Math.min(size, 200));
-        return auditStore.page(Math.max(0, page), clampedSize, v, organizationId);
+        return auditStore.page(Math.max(0, page), Math.max(1, Math.min(size, 200)), v, organizationId);
     }
 
     // ── Budget Endpoints ──────────────────────────────────────────────────────
@@ -104,20 +101,10 @@ public class SentinelDashboardController {
 
     @GetMapping("/stats")
     public StatsResponse stats() {
-        AuditEventStore.StatsSnapshot s = auditStore.stats();
-
-        Map<String, Long> blocksByRule = new LinkedHashMap<>();
-        auditStore.page(0, 200, SentinelDecision.Verdict.BLOCK, null)
-                .content().stream()
-                .filter(e -> e.ruleId() != null)
-                .forEach(e -> blocksByRule.merge(e.ruleId(), 1L, Long::sum));
-
-        List<RuleCount> top = blocksByRule.entrySet().stream()
-                .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
-                .limit(5)
+        AuditStore.StatsSnapshot s = auditStore.stats();
+        List<RuleCount> top = auditStore.topBlockedRules(5).entrySet().stream()
                 .map(e -> new RuleCount(e.getKey(), e.getValue()))
                 .toList();
-
         return new StatsResponse(s.totalRequests(), s.allowedCount(), s.blockedCount(),
                 s.flaggedCount(), s.avgLatencyMs(), top);
     }
@@ -154,11 +141,8 @@ public class SentinelDashboardController {
                     .priority(priority)
                     .agentGuidance(agentGuidance)
                     .safeAlternatives(safeAlternatives != null ? safeAlternatives : List.of());
-            if (endpointPattern != null && !endpointPattern.isBlank()) {
-                b.endpointPattern(endpointPattern);
-            } else {
-                b.endpointPattern(".*");
-            }
+            b.endpointPattern(endpointPattern != null && !endpointPattern.isBlank()
+                    ? endpointPattern : ".*");
             return b.build();
         }
     }
