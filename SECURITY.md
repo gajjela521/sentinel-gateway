@@ -14,7 +14,7 @@ Once stable releases begin, only the latest minor version will receive security 
 
 Please report security bugs by emailing:
 
-**gajjelasuryateja2021@gmail.com**
+**gajjelsa@protonmail.com**
 
 Include in your report:
 - A description of the vulnerability
