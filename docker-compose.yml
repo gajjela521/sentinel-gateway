@@ -1,0 +1,37 @@
+version: "3.9"
+
+services:
+  sentinel-proxy:
+    build:
+      context: ./sentinel-proxy
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      SENTINEL_UPSTREAM: "http://upstream-api:9090"
+      SENTINEL_POLICY_FILE: "/etc/sentinel/policies.yaml"
+    volumes:
+      - ./policies:/etc/sentinel
+    depends_on:
+      - upstream-api
+
+  upstream-api:
+    image: kennethreitz/httpbin
+    ports:
+      - "9090:80"
+
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9091:9090"
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: sentinel
+    volumes:
+      - ./observability/grafana:/etc/grafana/provisioning

@@ -1,0 +1,43 @@
+rules:
+
+  # Block bulk deletion of users without human approval
+  - id: no-bulk-delete-users
+    description: "DELETE on /users requires explicit human-approval policy"
+    methods: [DELETE]
+    endpoint_pattern: ".*/users(/.*)?$"
+    action: REQUIRE_APPROVAL
+    agent_guidance: "Request human approval before proceeding with user deletions"
+    safe_alternatives:
+      - "GET /users/{id}"
+      - "POST /users/{id}/deactivate"
+    priority: 10
+
+  # Block writes to billing/payment endpoints
+  - id: block-billing-mutations
+    description: "POST/PUT/PATCH/DELETE on billing endpoints require approval"
+    methods: [POST, PUT, PATCH, DELETE]
+    endpoint_pattern: ".*/billing(/.*)?$|.*/payments(/.*)?$|.*/subscriptions(/.*)?$"
+    action: REQUIRE_APPROVAL
+    agent_guidance: "Billing mutations require human approval. Use GET to read billing state instead."
+    safe_alternatives:
+      - "GET /billing/summary"
+      - "GET /billing/invoices"
+    priority: 20
+
+  # Block access to secrets/credentials endpoints
+  - id: block-credentials-access
+    description: "Access to credentials or secrets endpoints is forbidden for agents"
+    methods: [GET, POST, PUT, PATCH, DELETE]
+    endpoint_pattern: ".*/secrets(/.*)?$|.*/credentials(/.*)?$|.*/api-keys(/.*)?$"
+    action: BLOCK
+    agent_guidance: "Agents are not permitted to access credential or secret management endpoints."
+    priority: 5
+
+  # Quarantine requests to undocumented admin endpoints
+  - id: quarantine-admin-access
+    description: "Admin endpoint access triggers quarantine for review"
+    methods: [POST, PUT, PATCH, DELETE]
+    endpoint_pattern: ".*/admin(/.*)?$"
+    action: QUARANTINE
+    agent_guidance: "Admin mutations are quarantined for human review"
+    priority: 15
