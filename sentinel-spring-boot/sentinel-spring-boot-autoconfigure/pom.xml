@@ -46,10 +46,11 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- Web MVC — optional: present in any Spring Boot web app; omit for reactive-only users -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
-            <scope>test</scope>
+            <optional>true</optional>
         </dependency>
     </dependencies>
 </project>

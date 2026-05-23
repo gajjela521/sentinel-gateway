@@ -173,6 +173,41 @@ public final class FinancialCircuitBreakerLayer implements SentinelLayer {
     }
 
     /**
+     * Returns a snapshot for every tracked execution thread, ordered by thread ID.
+     * Useful for dashboard and observability endpoints.
+     */
+    public List<ThreadBudgetSnapshot> listSnapshots() {
+        return breakers.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .map(e -> new ThreadBudgetSnapshot(
+                        e.getKey(),
+                        e.getValue().state,
+                        e.getValue().budget.spendUsd(),
+                        e.getValue().budget.tokensConsumed(),
+                        e.getValue().budget.mutationCount(),
+                        defaultConfig.maxSpendUsd(),
+                        defaultConfig.maxTokensBurned(),
+                        defaultConfig.maxStateMutations()
+                ))
+                .toList();
+    }
+
+    /**
+     * Full snapshot of one execution thread's budget, including limits.
+     * Returned by {@link #listSnapshots()} for observability.
+     */
+    public record ThreadBudgetSnapshot(
+            String executionThreadId,
+            BreakerState state,
+            double spentUsd,
+            long spentTokens,
+            int mutationCount,
+            double limitUsd,
+            long limitTokens,
+            int mutationLimit
+    ) {}
+
+    /**
      * Point-in-time snapshot of budget consumption for a single execution thread.
      * Attached to {@link PipelineContext} so downstream layers and audit sinks can read it.
      */

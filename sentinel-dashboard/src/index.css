@@ -1,0 +1,31 @@
+/* Global resets and shared styles are in Layout.css */
+/* This file provides overrides for external component libraries */
+
+.error-banner {
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: 8px;
+  padding: 10px 16px;
+  color: var(--red);
+  margin-bottom: 16px;
+  font-size: 13px;
+}
+
+.alert-banner {
+  background: rgba(234, 179, 8, 0.1);
+  border: 1px solid rgba(234, 179, 8, 0.3);
+  border-radius: 8px;
+  padding: 10px 16px;
+  color: var(--yellow);
+  margin-bottom: 20px;
+  font-size: 13px;
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.mb-16 { margin-bottom: 16px; }
+
+.spin {
+  animation: spin 0.7s linear infinite;
+}
